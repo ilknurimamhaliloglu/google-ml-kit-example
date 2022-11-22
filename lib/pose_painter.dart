@@ -28,6 +28,11 @@ class PosePainter extends CustomPainter {
       ..strokeWidth = 3.0
       ..color = Colors.blueAccent;
 
+    final slopePaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.0
+      ..color = Colors.red;
+
     for (final pose in poses) {
       pose.landmarks.forEach((_, landmark) {
         canvas.drawCircle(
@@ -73,15 +78,24 @@ class PosePainter extends CustomPainter {
       double middleOfHipY = (rightHipY! + ((leftHipY! - rightHipY!) / 2));
 
       double slope = (middleOfHipY - middleOfShoulderY) /
-          (middleOfShoulderX - middleOfHipX);
+          (middleOfHipX - middleOfShoulderX);
 
+      double rangeX = (middleOfShoulderX - middleOfHipX).abs();
+
+      print(rangeX);
       print(slope);
 
-      if (slope < 5.0) {
+      if (rangeX < 30.0) {
         slopeText = 'Dik duruyor';
       } else {
         slopeText = 'Dik durmuyor';
       }
+
+      //   if (slope < 5.0) {
+      //     slopeText = 'Dik duruyor';
+      //   } else {
+      //     slopeText = 'Dik durmuyor';
+      //   }
 
       void paintSpine(
         double middleOfShoulderX,
@@ -140,11 +154,11 @@ class PosePainter extends CustomPainter {
 
       //Draw spine
       paintSpine(middleOfShoulderX, middleOfShoulderY, middleOfHipX,
-          middleOfHipY, rightPaint);
+          middleOfHipY, slopePaint);
     }
 
     TextStyle textStyle = const TextStyle(
-      color: Colors.black,
+      color: Colors.red,
       fontWeight: FontWeight.bold,
       fontSize: 18,
     );
