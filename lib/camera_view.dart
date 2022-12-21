@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:developer';
 import 'dart:io';
 
 import 'package:camera/camera.dart';
@@ -5,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:mlkit/display_picture.dart';
 
 import '../main.dart';
 
@@ -42,6 +45,9 @@ class _CameraViewState extends State<CameraView> {
   double zoomLevel = 0.0, minZoomLevel = 0.0, maxZoomLevel = 0.0;
   final bool _allowPicker = true;
   bool _changingCameraLens = false;
+  Timer? countdownTimer;
+  int timerDuration = 5;
+  bool timerShow = false;
 
   @override
   void initState() {
@@ -104,7 +110,14 @@ class _CameraViewState extends State<CameraView> {
         ],
       ),
       body: _body(),
-      floatingActionButton: _floatingActionButton(),
+      floatingActionButton: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          _floatingActionButton() ?? const SizedBox.shrink(),
+          const SizedBox(width: 10),
+          _floatingActionButton2() ?? const SizedBox.shrink(),
+        ],
+      ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
@@ -121,6 +134,22 @@ class _CameraViewState extends State<CameraView> {
             Platform.isIOS
                 ? Icons.flip_camera_ios_outlined
                 : Icons.flip_camera_android_outlined,
+            size: 40,
+          ),
+        ));
+  }
+
+  Widget? _floatingActionButton2() {
+    if (_mode == ScreenMode.gallery) return null;
+    if (cameras.length == 1) return null;
+    return SizedBox(
+        height: 70.0,
+        width: 70.0,
+        child: FloatingActionButton(
+          heroTag: null,
+          onPressed: () async => await takePicture(timerDuration),
+          child: const Icon(
+            Icons.camera_alt,
             size: 40,
           ),
         ));
@@ -163,7 +192,20 @@ class _CameraViewState extends State<CameraView> {
                   ? Center(
                       child: const Text('Changing camera lens'),
                     )
-                  : CameraPreview(_controller!),
+                  : Stack(
+                      children: [
+                        CameraPreview(_controller!),
+                        timerShow
+                            ? Center(
+                                child: Text(
+                                  timerDuration.toString(),
+                                  style: const TextStyle(
+                                      fontSize: 70, color: Colors.white),
+                                ),
+                              )
+                            : const SizedBox.shrink(),
+                      ],
+                    ),
             ),
           ),
           if (widget.customPaint != null) widget.customPaint!,
@@ -309,6 +351,55 @@ class _CameraViewState extends State<CameraView> {
     final inputImage = InputImage.fromFile(_image!);
 
     widget.onImage(inputImage);
+  }
+
+  Future<void> takePicture(int timerDuration) async {
+    try {
+      setState(() {
+        timerShow = true;
+      });
+      startTimer();
+      // Photo will be taken after timer duration
+      Timer(Duration(seconds: timerDuration), () async {
+        final image = await _controller!.takePicture();
+        if (!mounted) return;
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => DisplayPictureView(
+              imagePath: image.path,
+            ),
+          ),
+        );
+      });
+    } catch (e) {
+      log(e.toString());
+    }
+  }
+
+  void startTimer() {
+    countdownTimer = Timer.periodic(
+      const Duration(seconds: 1),
+      (Timer timer) => {
+        if (timerDuration == 0)
+          {
+            setState(() {
+              timer.cancel();
+            })
+          }
+        else if (timerDuration == 1)
+          {
+            setState(() {
+              timerShow = false;
+            })
+          }
+        else
+          {
+            setState(() {
+              timerDuration--;
+            })
+          }
+      },
+    );
   }
 
   Future _processCameraImage(CameraImage image) async {
