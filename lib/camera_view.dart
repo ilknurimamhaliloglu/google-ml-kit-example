@@ -8,10 +8,14 @@ import 'package:flutter/material.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mlkit/display_picture.dart';
+// ignore: depend_on_referenced_packages
+import 'package:sensors_plus/sensors_plus.dart';
 
 import '../main.dart';
 
 enum ScreenMode { liveFeed, gallery }
+
+bool showAccelerationDialog = true;
 
 class CameraView extends StatefulWidget {
   const CameraView(
@@ -48,6 +52,10 @@ class _CameraViewState extends State<CameraView> {
   Timer? countdownTimer;
   int timerDuration = 5;
   bool timerShow = false;
+  List<double>? _accelerometerValues;
+  final _streamSubscriptions = <StreamSubscription<dynamic>>[];
+  AccelerometerEvent? _acceleration;
+  late Timer _timer;
 
   @override
   void initState() {
@@ -79,37 +87,66 @@ class _CameraViewState extends State<CameraView> {
     } else {
       _mode = ScreenMode.gallery;
     }
+
+    _streamSubscriptions.add(
+      accelerometerEvents.listen(
+        (AccelerometerEvent event) {
+          setState(() {
+            _accelerometerValues = <double>[event.x, event.y, event.z];
+            _acceleration = event;
+          });
+        },
+      ),
+    );
+    accelerationControl();
+  }
+
+  void accelerationControl() {
+    _timer = Timer.periodic(const Duration(milliseconds: 1000), (_) {
+      if (_acceleration!.x < 0.5 && _acceleration!.x > -0.5) {
+        setState(() {
+          showAccelerationDialog = false;
+        });
+      } else {
+        setState(() {
+          showAccelerationDialog = true;
+        });
+      }
+    });
   }
 
   @override
   void dispose() {
+    _timer.cancel();
     _stopLiveFeed();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final accelerometer =
+        _accelerometerValues?.map((double v) => v.toStringAsFixed(1)).toList();
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.title),
-        actions: [
-          if (_allowPicker)
-            Padding(
-              padding: EdgeInsets.only(right: 20.0),
-              child: GestureDetector(
-                onTap: _switchScreenMode,
-                child: Icon(
-                  _mode == ScreenMode.liveFeed
-                      ? Icons.photo_library_outlined
-                      : (Platform.isIOS
-                          ? Icons.camera_alt_outlined
-                          : Icons.camera),
-                ),
-              ),
-            ),
-        ],
-      ),
-      body: _body(),
+      //   appBar: AppBar(
+      //     title: Text(widget.title),
+      //     actions: [
+      //       if (_allowPicker)
+      //         Padding(
+      //           padding: EdgeInsets.only(right: 20.0),
+      //           child: GestureDetector(
+      //             onTap: _switchScreenMode,
+      //             child: Icon(
+      //               _mode == ScreenMode.liveFeed
+      //                   ? Icons.photo_library_outlined
+      //                   : (Platform.isIOS
+      //                       ? Icons.camera_alt_outlined
+      //                       : Icons.camera),
+      //             ),
+      //           ),
+      //         ),
+      //     ],
+      //   ),
+      body: _body(accelerometer),
       floatingActionButton: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -155,17 +192,17 @@ class _CameraViewState extends State<CameraView> {
         ));
   }
 
-  Widget _body() {
+  Widget _body(accelerometer) {
     Widget body;
     if (_mode == ScreenMode.liveFeed) {
-      body = _liveFeedBody();
+      body = _liveFeedBody(accelerometer);
     } else {
       body = _galleryBody();
     }
     return body;
   }
 
-  Widget _liveFeedBody() {
+  Widget _liveFeedBody(accelerometer) {
     if (_controller?.value.isInitialized == false) {
       return Container();
     }
@@ -189,12 +226,30 @@ class _CameraViewState extends State<CameraView> {
             scale: scale,
             child: Center(
               child: _changingCameraLens
-                  ? Center(
-                      child: const Text('Changing camera lens'),
+                  ? const Center(
+                      child: Text('Changing camera lens'),
                     )
                   : Stack(
                       children: [
                         CameraPreview(_controller!),
+                        Padding(
+                          padding: EdgeInsets.only(top: 25),
+                          child: Text(
+                            accelerometer.toString(),
+                            style: const TextStyle(
+                                fontSize: 20, color: Colors.white),
+                          ),
+                        ),
+                        showAccelerationDialog
+                            ? const Padding(
+                                padding: EdgeInsets.only(top: 50),
+                                child: Text(
+                                  'Diyalog göster',
+                                  style: TextStyle(
+                                      fontSize: 20, color: Colors.white),
+                                ),
+                              )
+                            : const SizedBox.shrink(),
                         timerShow
                             ? Center(
                                 child: Text(

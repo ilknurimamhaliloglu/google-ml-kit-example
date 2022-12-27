@@ -1,5 +1,9 @@
+import 'dart:async';
+
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:mlkit/sensor_view.dart';
+import 'package:sensors_plus/sensors_plus.dart';
 
 import 'pose_detector_view.dart';
 
@@ -66,6 +70,12 @@ class Home extends StatelessWidget {
               ),
             ),
           ),
+        ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const SensorView()),
         ),
       ),
     );
