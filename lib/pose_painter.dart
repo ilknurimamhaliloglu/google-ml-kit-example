@@ -7,18 +7,21 @@ import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import 'camera_view.dart';
 import 'coordinates_translator.dart';
 
-final tiltAngleArray = [];
+final List<double> tiltAngleArray = [];
 double totalTiltAngle = 0;
 double averageTiltAngle = 0;
-final hipsAngleArray = [];
+final List<double> hipsAngleArray = [];
 double totalHipsAngle = 0;
 double averageHipsAngle = 0;
-final leftQAngleArray = [];
+final List<double> leftQAngleArray = [];
 double totalLeftQAngle = 0;
 double averageLeftQAngle = 0;
-final rightQAngleArray = [];
+final List<double> rightQAngleArray = [];
 double totalRightQAngle = 0;
 double averageRightQAngle = 0;
+final List<double> shiftAngleArray = [];
+double totalShiftAngle = 0;
+double averageShiftAngle = 0;
 
 class Landmark {
   double x;
@@ -50,64 +53,39 @@ double getAngle(
   return degrees;
 }
 
-double getTiltAngle(tiltAngle) {
-  final tiltAngleArrayLength = tiltAngleArray.length;
+double getAverageAngle(
+  double angle,
+  List<double> angleArray,
+  double totalAngle,
+  double averageAngle,
+) {
+  final angleArrayLength = angleArray.length;
 
-  if (!tiltAngleArray.contains(tiltAngle)) {
-    if (tiltAngleArrayLength == 20) {
-      tiltAngleArray.removeAt(0);
+  if (!angleArray.contains(angle)) {
+    if (angleArrayLength == 20) {
+      angleArray.removeAt(0);
     }
-    tiltAngleArray.add(tiltAngle);
+    angleArray.add(angle);
   }
 
-  totalTiltAngle = tiltAngleArray.reduce((a, b) => a + b);
-  averageTiltAngle = totalTiltAngle / tiltAngleArrayLength;
-  return averageTiltAngle;
+  totalAngle = angleArray.reduce((a, b) => a + b);
+  averageAngle = totalAngle / angleArrayLength;
+  return averageAngle;
 }
 
-double getHipsAngle(hipsAngle) {
-  final hipsAngleArrayLength = hipsAngleArray.length;
+double getShiftAngle(shiftAngle) {
+  final shiftAngleArrayLength = shiftAngleArray.length;
 
-  if (!hipsAngleArray.contains(hipsAngle)) {
-    if (hipsAngleArrayLength == 20) {
-      hipsAngleArray.removeAt(0);
+  if (!shiftAngleArray.contains(shiftAngle)) {
+    if (shiftAngleArrayLength == 20) {
+      shiftAngleArray.removeAt(0);
     }
-    hipsAngleArray.add(hipsAngle);
+    shiftAngleArray.add(shiftAngle);
   }
 
-  totalHipsAngle = hipsAngleArray.reduce((a, b) => a + b);
-  averageHipsAngle = totalHipsAngle / hipsAngleArrayLength;
-  return averageHipsAngle;
-}
-
-double getLeftQAngle(leftQAngle) {
-  final leftQAngleArrayLength = leftQAngleArray.length;
-
-  if (!leftQAngleArray.contains(leftQAngle)) {
-    if (leftQAngleArrayLength == 20) {
-      leftQAngleArray.removeAt(0);
-    }
-    leftQAngleArray.add(leftQAngle);
-  }
-
-  totalLeftQAngle = leftQAngleArray.reduce((a, b) => a + b);
-  averageLeftQAngle = totalLeftQAngle / leftQAngleArrayLength;
-  return 180 - averageLeftQAngle;
-}
-
-double getRightQAngle(rightQAngle) {
-  final rightQAngleArrayLength = rightQAngleArray.length;
-
-  if (!rightQAngleArray.contains(rightQAngle)) {
-    if (rightQAngleArrayLength == 20) {
-      rightQAngleArray.removeAt(0);
-    }
-    rightQAngleArray.add(rightQAngle);
-  }
-
-  totalRightQAngle = rightQAngleArray.reduce((a, b) => a + b);
-  averageRightQAngle = totalRightQAngle / rightQAngleArrayLength;
-  return 180 - averageRightQAngle;
+  totalShiftAngle = shiftAngleArray.reduce((a, b) => a + b);
+  averageShiftAngle = totalShiftAngle / shiftAngleArrayLength;
+  return averageShiftAngle;
 }
 
 class PosePainter extends CustomPainter {
@@ -152,10 +130,8 @@ class PosePainter extends CustomPainter {
 
       double? leftShoulderX,
           leftShoulderY,
-          leftShoulderZ,
           rightShoulderX,
           rightShoulderY,
-          rightShoulderZ,
           leftHipX,
           leftHipY,
           rightHipX,
@@ -174,11 +150,9 @@ class PosePainter extends CustomPainter {
           if (landmark.type == PoseLandmarkType.leftShoulder) {
             leftShoulderX = landmark.x;
             leftShoulderY = landmark.y;
-            leftShoulderZ = landmark.z;
           } else if (landmark.type == PoseLandmarkType.rightShoulder) {
             rightShoulderX = landmark.x;
             rightShoulderY = landmark.y;
-            rightShoulderZ = landmark.z;
           } else if (landmark.type == PoseLandmarkType.leftHip) {
             leftHipX = landmark.x;
             leftHipY = landmark.y;
@@ -201,8 +175,17 @@ class PosePainter extends CustomPainter {
         }
       });
 
-      print('M1: ${rightShoulderX!}, ${rightShoulderY!}');
-      print('S1: ${leftShoulderX!}, ${leftShoulderY!}');
+      double middleOfShoulderX =
+          (rightShoulderX! + ((leftShoulderX! - rightShoulderX!) / 2));
+      double middleOfShoulderY =
+          (rightShoulderY! + ((leftShoulderY! - rightShoulderY!) / 2));
+
+      double middleOfHipX = (rightHipX! + ((leftHipX! - rightHipX!) / 2));
+      double middleOfHipY = (rightHipY! + ((leftHipY! - rightHipY!) / 2));
+
+      double height = 180;
+      const double headHeight = 30;
+      double spinalHeight = 0;
 
       if (!showAccelerationDialog) {
         final double tiltAngle = getAngle(
@@ -213,8 +196,8 @@ class PosePainter extends CustomPainter {
           // Last point is coordinates of the line parallel to the x-axis
           Landmark(x: rightShoulderX!, y: leftShoulderY!),
         );
-        averageTiltAngle = getTiltAngle(tiltAngle);
-        // print(averageTiltAngle);
+        averageTiltAngle = getAverageAngle(
+            tiltAngle, tiltAngleArray, totalTiltAngle, averageTiltAngle);
 
         final double hipsAngle = getAngle(
           // First point is right hip coordinates
@@ -224,7 +207,8 @@ class PosePainter extends CustomPainter {
           // Last point is coordinates of the line parallel to the x-axis
           Landmark(x: rightHipX!, y: leftHipY!),
         );
-        averageHipsAngle = getHipsAngle(hipsAngle);
+        averageHipsAngle = getAverageAngle(
+            hipsAngle, hipsAngleArray, totalHipsAngle, averageHipsAngle);
 
         final double leftQAngle = getAngle(
           // First point is left hip coordinates
@@ -234,7 +218,10 @@ class PosePainter extends CustomPainter {
           // Last point is is left ankle coordinates
           Landmark(x: leftAnkleX!, y: leftAnkleY!),
         );
-        averageLeftQAngle = getLeftQAngle(leftQAngle);
+        // averageLeftQAngle = getLeftQAngle(leftQAngle);
+        averageLeftQAngle = 180 -
+            getAverageAngle(leftQAngle, leftQAngleArray, totalLeftQAngle,
+                averageLeftQAngle);
 
         final double rightQAngle = getAngle(
           // First point is right hip coordinates
@@ -244,43 +231,41 @@ class PosePainter extends CustomPainter {
           // Last point is is right ankle coordinates
           Landmark(x: rightAnkleX!, y: rightAnkleY!),
         );
-        averageRightQAngle = getRightQAngle(rightQAngle);
+        // averageRightQAngle = getRightQAngle(rightQAngle);
+        averageRightQAngle = 180 -
+            getAverageAngle(rightQAngle, rightQAngleArray, totalRightQAngle,
+                averageRightQAngle);
+
+        final double shiftAngle = getAngle(
+          // First point is middle of shoulder coordinates
+          Landmark(x: middleOfShoulderX, y: middleOfShoulderY),
+          // Mid point is middle of hip coordinates
+          Landmark(x: middleOfHipX, y: middleOfHipY),
+          // Last point is coordinates of the line parallel to the x-axis
+          Landmark(x: middleOfShoulderX, y: middleOfHipY),
+        );
+        averageShiftAngle = getShiftAngle(shiftAngle);
+
+        height = height - headHeight;
+
+        spinalHeight = (height * 2) / 5;
+
+        double shiftCm = ((90 - averageShiftAngle) * spinalHeight) / 90;
+        double shiftInch = shiftCm * 0.39;
 
         if (rightShoulderY! < leftShoulderY!) {
           // Sola Eğik
           slopeText =
-              'Sola Eğik\nTilt:, ${averageTiltAngle.toStringAsFixed(1)}\nHips: ${averageHipsAngle.toStringAsFixed(1)}\nLeftQ: ${averageLeftQAngle.toStringAsFixed(1)}\nRightQ: ${averageRightQAngle.toStringAsFixed(1)}';
+              'Left\nTilt: ${averageTiltAngle.toStringAsFixed(1)}°\nHips: ${averageHipsAngle.toStringAsFixed(1)}°\nLeftQ: ${averageLeftQAngle.toStringAsFixed(1)}°\nRightQ: ${averageRightQAngle.toStringAsFixed(1)}°\nShift: ${shiftCm.toStringAsFixed(1)} cm\nShift: ${shiftInch.toStringAsFixed(1)} inch';
         } else if (rightShoulderY! > leftShoulderY!) {
           // Sağa Eğik
           slopeText =
-              'Sağa Eğik\nTilt: ${averageTiltAngle.toStringAsFixed(1)}\nHips: ${averageHipsAngle.toStringAsFixed(1)}\nLeftQ: ${averageLeftQAngle.toStringAsFixed(1)}\nRightQ: ${averageRightQAngle.toStringAsFixed(1)}';
+              'Right\nTilt: ${averageTiltAngle.toStringAsFixed(1)}°\nHips: ${averageHipsAngle.toStringAsFixed(1)}°\nLeftQ: ${averageLeftQAngle.toStringAsFixed(1)}°\nRightQ: ${averageRightQAngle.toStringAsFixed(1)}°\nShift: ${shiftCm.toStringAsFixed(1)} cm\nShift: ${shiftInch.toStringAsFixed(1)} inch';
         } else {
           // Eğik Değil
           slopeText = 'Eğik Değil';
         }
       }
-
-      double middleOfShoulderX =
-          (rightShoulderX! + ((leftShoulderX! - rightShoulderX!) / 2));
-      double middleOfShoulderY =
-          (rightShoulderY! + ((leftShoulderY! - rightShoulderY!) / 2));
-
-      double middleOfHipX = (rightHipX! + ((leftHipX! - rightHipX!) / 2));
-      double middleOfHipY = (rightHipY! + ((leftHipY! - rightHipY!) / 2));
-
-      // double rangeX = (middleOfShoulderX - middleOfHipX).abs();
-      // print(rangeX);
-      //   if (rangeX < 30.0) {
-      //     slopeText = 'Dik duruyor';
-      //   } else {
-      //     slopeText = 'Dik durmuyor';
-      //   }
-
-      //   if (slope < 5.0) {
-      //     slopeText = 'Dik duruyor';
-      //   } else {
-      //     slopeText = 'Dik durmuyor';
-      //   }
 
       void paintSpine(
         double middleOfShoulderX,
